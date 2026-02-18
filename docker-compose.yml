@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: django_todo_app
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+      - db_volume:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=1
+      - SECRET_KEY=django-insecure-docker-dev-key-change-in-production
+      - DATABASE_URL=sqlite:///db.sqlite3
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  # Optional: PostgreSQL database (uncomment to use instead of SQLite)
+  # db:
+  #   image: postgres:15-alpine
+  #   container_name: postgres_todo_db
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   environment:
+  #     - POSTGRES_DB=todo_db
+  #     - POSTGRES_USER=todo_user
+  #     - POSTGRES_PASSWORD=todo_password
+  #   ports:
+  #     - "5432:5432"
+  #   restart: unless-stopped
+
+volumes:
+  static_volume:
+  db_volume:
+  # postgres_data:  # Uncomment if using PostgreSQL

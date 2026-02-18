@@ -1,0 +1,57 @@
+pipeline {
+    agent any
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                echo '📥 Checking out code...'
+                checkout scm
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                echo '🔨 Building Docker image...'
+                sh 'docker-compose build'
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                echo '🧪 Running tests...'
+                sh '''
+                    docker-compose run --rm web python manage.py test
+                '''
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                echo '🚀 Deploying application...'
+                sh '''
+                    docker-compose down
+                    docker-compose up -d
+                '''
+            }
+        }
+        
+        stage('Verify') {
+            steps {
+                echo '✅ Verifying deployment...'
+                sh '''
+                    sleep 5
+                    curl -f http://localhost:8000 || exit 1
+                '''
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo '✅ Pipeline completed successfully!'
+        }
+        failure {
+            echo '❌ Pipeline failed!'
+        }
+    }
+}
