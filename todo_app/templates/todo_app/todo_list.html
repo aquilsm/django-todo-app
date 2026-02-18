@@ -1,0 +1,188 @@
+{% extends 'todo_app/base.html' %}
+
+{% block title %}Todo List{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+    <h2 style="color: #333;">My Tasks</h2>
+    <a href="{% url 'add_todo' %}" class="btn">+ Add New Task</a>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <form method="get" action="{% url 'todo_list' %}">
+        <div class="filter-group">
+            <div>
+                <label for="category">Category:</label>
+                <select name="category" id="category" onchange="this.form.submit()">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                        <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>
+                            {{ category.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label for="priority">Priority:</label>
+                <select name="priority" id="priority" onchange="this.form.submit()">
+                    <option value="">All Priorities</option>
+                    <option value="high" {% if selected_priority == "high" %}selected{% endif %}>High</option>
+                    <option value="medium" {% if selected_priority == "medium" %}selected{% endif %}>Medium</option>
+                    <option value="low" {% if selected_priority == "low" %}selected{% endif %}>Low</option>
+                </select>
+            </div>
+            
+            <div>
+                <label for="status">Status:</label>
+                <select name="status" id="status" onchange="this.form.submit()">
+                    <option value="">All Tasks</option>
+                    <option value="active" {% if selected_status == "active" %}selected{% endif %}>Active</option>
+                    <option value="completed" {% if selected_status == "completed" %}selected{% endif %}>Completed</option>
+                </select>
+            </div>
+            
+            {% if selected_category or selected_priority or selected_status %}
+            <a href="{% url 'todo_list' %}" class="btn btn-small btn-secondary">Clear Filters</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+{% if todos %}
+    <div class="todo-list">
+        {% for todo in todos %}
+        <div class="todo-item" style="
+            background: {% if todo.completed %}#f8f9fa{% else %}white{% endif %};
+            border-left: 5px solid {{ todo.priority_color }};
+            border: 2px solid {% if todo.completed %}#27ae60{% elif todo.is_overdue %}#e74c3c{% else %}#ddd{% endif %};
+            border-left: 5px solid {{ todo.priority_color }};
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        ">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <!-- Title and Badges -->
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <h3 style="
+                            color: {% if todo.completed %}#27ae60{% else %}#333{% endif %};
+                            text-decoration: {% if todo.completed %}line-through{% else %}none{% endif %};
+                            margin: 0;
+                        ">
+                            {{ todo.title }}
+                        </h3>
+                        <span class="priority-badge priority-{{ todo.priority }}">{{ todo.get_priority_display }}</span>
+                        {% if todo.category %}
+                            <span class="category-badge" style="background: {{ todo.category.color }};">
+                                {{ todo.category.name }}
+                            </span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Description -->
+                    {% if todo.description %}
+                    <p style="
+                        color: #666;
+                        margin-bottom: 10px;
+                        text-decoration: {% if todo.completed %}line-through{% else %}none{% endif %};
+                    ">
+                        {{ todo.description }}
+                    </p>
+                    {% endif %}
+                    
+                    <!-- Due Date -->
+                    {% if todo.due_date %}
+                    <p style="margin-bottom: 10px;">
+                        <strong>Due:</strong> 
+                        <span class="{% if todo.is_overdue %}overdue{% endif %}">
+                            {{ todo.due_date|date:"M d, Y H:i" }}
+                            {% if todo.is_overdue %}⚠️ OVERDUE{% endif %}
+                        </span>
+                    </p>
+                    {% endif %}
+                    
+                    <!-- Subtasks -->
+                    {% if todo.subtasks.all %}
+                    <div style="margin-top: 15px;">
+                        <strong style="display: block; margin-bottom: 8px;">Subtasks:</strong>
+                        {% for subtask in todo.subtasks.all %}
+                        <div class="subtask-item {% if subtask.completed %}completed{% endif %}">
+                            <input type="checkbox" 
+                                   {% if subtask.completed %}checked{% endif %}
+                                   onchange="toggleSubtask({{ subtask.id }})">
+                            <span>{{ subtask.title }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Notes -->
+                    {% if todo.notes %}
+                    <details style="margin-top: 10px;">
+                        <summary style="cursor: pointer; color: #667eea; font-weight: bold;">📝 Notes</summary>
+                        <div style="margin-top: 8px; padding: 10px; background: #f8f9fa; border-radius: 5px; color: #666;">
+                            {{ todo.notes|linebreaks }}
+                        </div>
+                    </details>
+                    {% endif %}
+                    
+                    <!-- Timestamps -->
+                    <small style="color: #999; display: block; margin-top: 10px;">
+                        Created: {{ todo.created_at|date:"M d, Y H:i" }}
+                    </small>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <form method="post" action="{% url 'toggle_todo' todo.id %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-small {% if todo.completed %}btn-success{% else %}btn{% endif %}">
+                            {% if todo.completed %}✓ Completed{% else %}Mark Complete{% endif %}
+                        </button>
+                    </form>
+                    <a href="{% url 'edit_todo' todo.id %}" class="btn btn-small">Edit</a>
+                    <form method="post" action="{% url 'delete_todo' todo.id %}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this task?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger btn-small">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div style="text-align: center; padding: 60px 20px; color: #999;">
+        <div style="font-size: 60px; margin-bottom: 20px;">📋</div>
+        <h3>No tasks found!</h3>
+        <p>{% if selected_category or selected_priority or selected_status %}Try adjusting your filters or{% endif %} Click "Add New Task" to get started.</p>
+    </div>
+{% endif %}
+
+<div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; color: #666;">
+    <p>Total tasks: {{ todos.count }} | Completed: {{ todos|length|add:0 }}</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleSubtask(subtaskId) {
+    fetch(`/subtask/toggle/${subtaskId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+</script>
+{% endblock %}

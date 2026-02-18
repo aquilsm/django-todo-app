@@ -1,0 +1,124 @@
+{% extends 'todo_app/base.html' %}
+
+{% block title %}Edit Task{% endblock %}
+
+{% block content %}
+<a href="{% url 'todo_list' %}" class="back-link">← Back to list</a>
+
+<h2 style="color: #333; margin-bottom: 30px;">Edit Task</h2>
+
+<form method="post">
+    {% csrf_token %}
+    
+    <div class="form-group">
+        <label for="title">Task Title *</label>
+        <input type="text" id="title" name="title" value="{{ todo.title }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" name="description">{{ todo.description }}</textarea>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="form-group">
+            <label for="priority">Priority *</label>
+            <select id="priority" name="priority" required>
+                <option value="low" {% if todo.priority == "low" %}selected{% endif %}>Low</option>
+                <option value="medium" {% if todo.priority == "medium" %}selected{% endif %}>Medium</option>
+                <option value="high" {% if todo.priority == "high" %}selected{% endif %}>High</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="category">Category</label>
+            <select id="category" name="category">
+                <option value="">No Category</option>
+                {% for category in categories %}
+                    <option value="{{ category.id }}" {% if todo.category.id == category.id %}selected{% endif %}>
+                        {{ category.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label for="due_date">Due Date</label>
+        <input type="datetime-local" id="due_date" name="due_date" 
+               value="{% if todo.due_date %}{{ todo.due_date|date:'Y-m-d\TH:i' }}{% endif %}">
+    </div>
+    
+    <div class="form-group">
+        <label for="notes">Notes</label>
+        <textarea id="notes" name="notes" rows="4">{{ todo.notes }}</textarea>
+    </div>
+    
+    <!-- Existing Subtasks -->
+    <div class="form-group">
+        <label>Subtasks</label>
+        <div id="existing-subtasks">
+            {% for subtask in todo.subtasks.all %}
+            <div class="subtask-input" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+                <input type="hidden" name="subtask_id[]" value="{{ subtask.id }}">
+                <input type="checkbox" name="existing_subtask_completed[]" value="{{ subtask.id }}" 
+                       {% if subtask.completed %}checked{% endif %}
+                       style="width: auto;">
+                <input type="text" name="existing_subtask_title[]" value="{{ subtask.title }}" 
+                       style="flex: 1;">
+                <button type="button" onclick="deleteSubtask({{ subtask.id }}, this)" 
+                        class="btn btn-danger btn-small">Delete</button>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- New Subtasks -->
+        <div id="new-subtasks-container"></div>
+        <button type="button" onclick="addNewSubtask()" class="btn btn-small btn-secondary">+ Add Subtask</button>
+    </div>
+    
+    <div style="display: flex; gap: 10px; margin-top: 30px;">
+        <button type="submit" class="btn">Save Changes</button>
+        <a href="{% url 'todo_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function addNewSubtask() {
+    const container = document.getElementById('new-subtasks-container');
+    const newSubtask = document.createElement('div');
+    newSubtask.className = 'subtask-input';
+    newSubtask.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+    newSubtask.innerHTML = `
+        <input type="text" name="new_subtask_title[]" placeholder="New subtask title..." style="flex: 1;">
+        <button type="button" onclick="removeNewSubtask(this)" class="btn btn-danger btn-small">Remove</button>
+    `;
+    container.appendChild(newSubtask);
+}
+
+function removeNewSubtask(button) {
+    button.parentElement.remove();
+}
+
+function deleteSubtask(subtaskId, button) {
+    if (confirm('Are you sure you want to delete this subtask?')) {
+        fetch(`/subtask/delete/${subtaskId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                button.parentElement.remove();
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+}
+</script>
+{% endblock %}
