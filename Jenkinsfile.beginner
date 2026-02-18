@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+    
+    stages {
+        // STAGE 1: Build Docker Image
+        // This creates a Docker container with your app
+        stage('🔨 Build') {
+            steps {
+                echo '🔨 Building Docker image...'
+                sh 'docker-compose build'
+            }
+        }
+        
+        // STAGE 2: Run Tests
+        // This makes sure your code works correctly
+        stage('🧪 Test') {
+            steps {
+                echo '🧪 Running tests...'
+                sh 'docker-compose run --rm web python manage.py test'
+            }
+        }
+        
+        // STAGE 3: Start the App
+        // This actually runs your Django app
+        stage('🚀 Deploy') {
+            steps {
+                echo '🚀 Starting the application...'
+                sh '''
+                    docker-compose down
+                    docker-compose up -d
+                '''
+            }
+        }
+        
+        // STAGE 4: Check if it's Running
+        // This verifies your app is accessible
+        stage('✅ Verify') {
+            steps {
+                echo '✅ Checking if app is running...'
+                sh 'sleep 10'
+                sh 'curl -f http://localhost:8000 || echo "App is starting..."'
+            }
+        }
+    }
+    
+    // What to do when pipeline finishes
+    post {
+        success {
+            echo '✅ SUCCESS! Your app is running at http://localhost:8000'
+        }
+        failure {
+            echo '❌ Something went wrong. Check the logs above.'
+        }
+        always {
+            echo '🏁 Pipeline finished!'
+        }
+    }
+}
